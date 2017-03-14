@@ -1,0 +1,111 @@
+#!/bin/bash
+
+BASENAME=$(basename $0)
+
+USAGE="Usage: $BASENAME [OPTIONS]
+Narzędzie to wykonywania testów obciążeniowych serwisów www.
+
+  -h or --help                              print this help
+  -q or --quiet                             provide only error output
+  -f or --filename [filename]               file with request URIs; for instance, '/index.html'
+  -d or --domain https://eengine.co         (required) domain do test; for instance, 'https://eengine.co'
+  -u or --users #                           the numer of users/threads (default: 10)
+  -s or --sleep #                           the number of secounds between clicks (default: 0)
+  -t or --timeout #                         the number of secounds to wait for server answer (default: 10)
+  -n or --duration #                        the number of secounds test duration (default: 60)
+"
+
+USERS=10
+SLEEP=0
+TIMEOUT=10
+DOMAIN=""
+DURATION=60
+
+while [[ $# -gt 0 ]]; do
+   key="$1"
+	
+   case $key in
+      -h|--help)
+         HELP=YES
+         shift ;;
+      -q|--quiet)
+         QUIET=YES
+         shift ;;
+      -v|--verbose)
+         VERBOSE=YES
+         shift ;;
+      -f|--filename)
+	 		SOURCE="$2"
+			shift ;;
+      -d|--domain)
+         DOMAIN="$2"
+         shift ;;
+      -u|--users)
+         USERS="$2"
+         shift ;;
+      -s|--sleep)
+         SLEEP="$2"
+         shift ;;
+      -t|--timeout)
+         TIMEOUT="$2"
+         shift ;;
+		-n|--duration)
+         DURATION="$2"
+         shift ;;
+	esac
+	shift
+done
+
+if [ "$HELP" = "YES" -o "$DOMAIN" = "" ]; then
+	echo "$USAGE"
+	exit 0
+fi
+
+readarray URIs < $SOURCE
+
+declare -a pids
+
+numberOfRequsts=0
+maxPidsCount=0
+startTime=`date +%s`
+while [ $((`date +%s`-startTime)) -lt $DURATION ]; do
+   if [ ${#pids[@]} -lt $USERS ]; then
+      URI=${URIs[$RANDOM % ${#URIs[@]}]}
+      URL=$DOMAIN${URI//[$'\t\r\n']}
+#      wget --timeout=$TIMEOUT "$URL" --spider --quiet && sleep $SLEEP &          # 2>&1 | grep "response"
+      curl --request GET "$URL" -A "googlebot" -s --max-time $TIMEOUT > /dev/null && sleep $SLEEP &
+      pids=(${pids[@]} $!)
+      if [ "$QUIET" != "YES" ]; then
+         echo ${#pids[@]}: "GET $URL"
+      fi
+      if [ ${#pids[@]} -gt $maxPidsCount ]; then
+         maxPidsCount=${#pids[@]}
+      fi
+      numberOfRequsts=$((numberOfRequsts+1))
+   fi
+
+   range=$(eval echo {0..$((${#pids[@]}-1))})
+   for i in $range; do
+      if ! kill -0 ${pids[$i]} 2> /dev/null; then
+         unset pids[$i]
+      fi
+   done
+   pids=("${pids[@]}")
+done
+
+#range=$(eval echo {0..$((${#pids[@]}-1))})
+#for i in $range; do
+#   if kill -0 ${pids[$i]} 2> /dev/null; then
+#      kill -9 ${pids[$i]} 2> /dev/null
+#   fi
+#done
+
+DURATION=$((`date +%s`-startTime))
+RATE=`echo "scale=1; $numberOfRequsts/$DURATION" | bc -l`
+echo 
+echo "Test duration: $DURATION sec"
+echo "Max number of clients: $maxPidsCount (set: $USERS)"
+echo "Sleep after response: $SLEEP sec"
+echo "Number of requests: $numberOfRequsts"
+echo "Rate of response: $RATE/sec"
+echo
