@@ -3,7 +3,7 @@
 BASENAME=$(basename $0)
 
 USAGE="Usage: $BASENAME [OPTIONS]
-Narzędzie to wykonywania testów obciążeniowych serwisów www.
+This tool performs stress tests of websites.
 
   -h or --help                              print this help
   -q or --quiet                             provide only error output
