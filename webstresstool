@@ -2,8 +2,10 @@
 
 BASENAME=$(basename $0)
 
-USAGE="Usage: $BASENAME [OPTIONS]
+USAGE="
 This tool performs stress tests of websites.
+
+Usage: $BASENAME [OPTIONS]
 
   -h or --help                              print this help
   -q or --quiet                             provide only error output
